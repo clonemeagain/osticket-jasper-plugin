@@ -21,13 +21,22 @@ define ('JASPER_REPORTS_OSTICKET_PLUGIN_VERSION', '0.1');
 define ('JASPER_REPORTS_PLUGIN_ROOT', __DIR__ . '/');
 define ('JASPER_REPORTS_INCLUDE', JASPER_REPORTS_PLUGIN_ROOT.'include/');
 define ('JASPER_REPORTS_VIEWS', JASPER_REPORTS_INCLUDE . 'views/');
+define ('JASPER_REPORTS_CONTROLLERS', JASPER_REPORTS_INCLUDE . 'controllers/');
 define ('JASPER_REPORTS_ASSETS', JASPER_REPORTS_PLUGIN_ROOT . 'assets/');
 spl_autoload_register (array (
 		'JasperReportPlugin',
 		'autoload' 
 ));
 class JasperReportPlugin extends Plugin {
+
 	var $config_class = 'JasperReportsConfig';
+
+	public static $jasper_server;
+	public static $jasper_server_ssl;
+	public static $jasper_server_username;
+	public static $jasper_server_password;
+	public static $jasper_server_report_path;
+
 		public static function autoload($className) {
 		$className = ltrim ($className, '\\');
 		$fileName = '';
@@ -38,12 +47,8 @@ class JasperReportPlugin extends Plugin {
 			$fileName = str_replace ('\\', DIRECTORY_SEPARATOR, $namespace) . DIRECTORY_SEPARATOR;
 		}
 		$fileName .= str_replace ('_', DIRECTORY_SEPARATOR, $className) . '.php';
-		// echo '</br>'.__DIR__.'/'.'</br>';
-		// echo '</br>'.JASPER_REPORTS_PLUGIN_ROOT.'+'.$fileName.'</br>';
-		// echo '</br>'.JASPER_REPORTS_INCLUDE.'+'.$fileName.'</br>';
-		// echo '</br>'.JASPER_REPORTS_PLUGIN_ROOT . $fileName.'</br>';
 		if (file_exists (JASPER_REPORTS_INCLUDE . $fileName)) {
-			require $fileName;
+			require_once $fileName;
 		}
 	}
 	static public function callbackDispatch($object, $data) {
@@ -52,14 +57,15 @@ class JasperReportPlugin extends Plugin {
 			I needed the trailing slash in my url;
 		*/
 		
+		
 		$search_url = url ('^/jasper-reports/', 
-			patterns ('controller\jaspercontroller', 
+			patterns ('controllers\jaspercontroller', 
 				url_get ('^search$', 'searchAction'),
 				url_post ('^jasper-stats$', 'getTicketStats')
 			)
 		);
 
-		
+
 		//the truth is I ended up having to dump all my resources into the assets folder.  some of these would work while others didn't;
 		//frustrated I put them in one folder.  it doesn't change much;
 		//this captures the group .* and names it url; This is a php regex sub pattern.
@@ -79,13 +85,14 @@ class JasperReportPlugin extends Plugin {
 		$object->append ($jasper_media_url);
 
 		$object->append ($search_url);
-		
 
 	}
 
 	//bootstrap required by interface
 	function bootstrap(){
-		global $ost;
+
+
+		
 	  if ($this->firstRun ()) {
             if (! $this->configureFirstRun ()) {
                 return false;
@@ -96,7 +103,12 @@ class JasperReportPlugin extends Plugin {
         }
 
         $config = $this->getConfig ();
-
+		self::$jasper_server = $config->get('url_jasper_server');
+		self::$jasper_server_ssl = $config->get('ssl_jasper_server');
+		self::$jasper_server_username = $config->get('username_jasper_server');
+		self::$jasper_server_password = $config->get('password_jasper_server');
+		self::$jasper_server_report_path = $config->get('report_path_jasper_server');
+		
         if ($config->get ('url_jasper_server')) {
             $this->createStaffMenu ();
         }
@@ -110,6 +122,8 @@ class JasperReportPlugin extends Plugin {
      * Creates menu links in the staff backend.
      */
     function createStaffMenu() {
+				// Set the url so other code can find it.
+	
         Application::registerStaffApp ('Jasper Reports', 'dispatcher.php/jasper-reports/search', array (
                 iconclass => 'faq-categories' 
        ));
